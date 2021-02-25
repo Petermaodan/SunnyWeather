@@ -57,14 +57,21 @@ class WeatherActivity : AppCompatActivity() {
             }
             swipeRefresh.isRefreshing = false
         })
+
+        //设置下拉进度条的颜色
         swipeRefresh.setColorSchemeResources(R.color.colorPrimary)
         refreshWeather()
+        //setOnRefreshListener->下拉刷新的监听器
         swipeRefresh.setOnRefreshListener {
             refreshWeather()
         }
         navBtn.setOnClickListener {
+
+            //调用openDrawer()方法打开滑动菜单
             drawerLayout.openDrawer(GravityCompat.START)
         }
+
+        //监听DrawerLayout的状态，当滑动菜单被隐藏时，同时也要隐藏输入法
         drawerLayout.addDrawerListener(object : DrawerLayout.DrawerListener {
             override fun onDrawerStateChanged(newState: Int) {}
 
@@ -79,8 +86,10 @@ class WeatherActivity : AppCompatActivity() {
         })
     }
 
+    //将之前刷新天气的代码提取到一个新的refreshWeather()方法中
     fun refreshWeather() {
         viewModel.refreshWeather(viewModel.locationLng, viewModel.locationLat)
+        //将isRefreshing属性设置为true->让下拉刷新进度条显示出来
         swipeRefresh.isRefreshing = true
     }
 

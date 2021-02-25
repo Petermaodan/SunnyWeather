@@ -25,6 +25,8 @@ class PlaceAdapter(private val fragment: PlaceFragment, private val placeList: L
             val position = holder.adapterPosition
             val place = placeList[position]
             val activity = fragment.activity
+
+            //对PlaceFragment所处的Activity进行判断，如果是在WeatherActivity中，就关闭滑动菜单，更新数据
             if (activity is WeatherActivity) {
                 activity.drawerLayout.closeDrawers()
                 activity.viewModel.locationLng = place.location.lng
