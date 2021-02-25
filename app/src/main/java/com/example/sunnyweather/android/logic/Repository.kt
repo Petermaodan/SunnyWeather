@@ -1,36 +1,65 @@
 package com.example.sunnyweather.android.logic
 
-
 import androidx.lifecycle.liveData
+import com.example.sunnyweather.android.logic.dao.PlaceDao
 import com.example.sunnyweather.android.logic.model.Place
+import com.example.sunnyweather.android.logic.model.Weather
 import com.example.sunnyweather.android.logic.network.SunnyWeatherNetwork
 import kotlinx.coroutines.Dispatchers
-import java.lang.RuntimeException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlin.coroutines.CoroutineContext
 
-/**
- * 作为仓库层的统一封装入口
- * 13.4节->LiveData用法->用于在数据发生变化时通知给观察者
- */
 object Repository {
 
-    //将liveData()函数的线程参数类型指定成Dispatchers.IO->代码块所有的代码都运行在子线程中
-    fun searchPlaces(query:String)= liveData(Dispatchers.IO){
-        val result=try {
-            //SunnyWeatherNetwork.searchPlaces(query)->搜索城市数据
-            val placeResponse=SunnyWeatherNetwork.searchPlaces(query)
-            if (placeResponse.status=="ok"){
-                val places=placeResponse.places
+    fun searchPlaces(query: String) = fire(Dispatchers.IO) {
+        val placeResponse = SunnyWeatherNetwork.searchPlaces(query)
+        if (placeResponse.status == "ok") {
+            val places = placeResponse.places
+            Result.success(places)
+        } else {
+            Result.failure(RuntimeException("response status is ${placeResponse.status}"))
+        }
+    }
 
-                //Result.success()->内置函数，包装获取到的数据
-                Result.success(places)
-            }else{
-                Result.failure(RuntimeException("response status is ${placeResponse.status}"))
+    fun refreshWeather(lng: String, lat: String, placeName: String) = fire(Dispatchers.IO) {
+        coroutineScope {
+            val deferredRealtime = async {
+                SunnyWeatherNetwork.getRealtimeWeather(lng, lat)
             }
-        }catch (e:Exception){
-            Result.failure<List<Place>>(e)
+            val deferredDaily = async {
+                SunnyWeatherNetwork.getDailyWeather(lng, lat)
+            }
+            val realtimeResponse = deferredRealtime.await()
+            val dailyResponse = deferredDaily.await()
+            if (realtimeResponse.status == "ok" && dailyResponse.status == "ok") {
+                val weather = Weather(realtimeResponse.result.realtime, dailyResponse.result.daily)
+                Result.success(weather)
+            } else {
+                Result.failure(
+                    RuntimeException(
+                        "realtime response status is ${realtimeResponse.status}" +
+                                "daily response status is ${dailyResponse.status}"
+                    )
+                )
+            }
+        }
+    }
+
+    fun savePlace(place: Place) = PlaceDao.savePlace(place)
+
+    fun getSavedPlace() = PlaceDao.getSavedPlace()
+
+    fun isPlaceSaved() = PlaceDao.isPlaceSaved()
+
+    private fun <T> fire(context: CoroutineContext, block: suspend () -> Result<T>) =
+        liveData<Result<T>>(context) {
+            val result = try {
+                block()
+            } catch (e: Exception) {
+                Result.failure<T>(e)
+            }
+            emit(result)
         }
 
-        //将包装的结果发射出去
-        emit(result)
-    }
 }
